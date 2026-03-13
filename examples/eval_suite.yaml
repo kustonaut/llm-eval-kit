@@ -1,0 +1,81 @@
+# Example eval suite for llm-eval-kit
+# Run: llm-eval eval examples/eval_suite.yaml
+
+name: "Daily Brief Quality Suite"
+
+cases:
+  - name: "clean_summary"
+    prompt: "Summarize today's key priorities"
+    response: |
+      Three priorities for today: (1) Ship the API review by end of day,
+      (2) Follow up with the eng lead on telemetry fix status,
+      (3) Prepare talking points for tomorrow's partner sync.
+      No blockers. Calendar is clear after 2pm for deep work.
+    expected_keywords:
+      - "priorities"
+      - "today"
+    banned_keywords:
+      - "I'd be happy to"
+      - "delve"
+    min_score: 0.7
+
+  - name: "placeholder_contamination"
+    prompt: "Generate a status report"
+    response: |
+      Project Status: {{PROJECT_NAME}}
+      Owner: [TBD]
+      Timeline: Q2 2026
+      Status: The project is on track with [INSERT DETAILS HERE].
+      Next steps: Lorem ipsum dolor sit amet.
+    expected_keywords:
+      - "status"
+    min_score: 0.7
+
+  - name: "ai_tell_heavy"
+    prompt: "Write a professional email"
+    response: |
+      I'd be happy to help you with that! Certainly, in today's world,
+      it's worth noting that this is a great question. Let me delve into
+      the landscape of this topic. I hope this helps! Feel free to reach
+      out if you need anything else. Absolutely, I'm here to assist.
+    banned_keywords:
+      - "I'd be happy to"
+      - "Certainly"
+      - "delve"
+      - "landscape"
+    min_score: 0.5
+
+  - name: "hallucination_markers"
+    prompt: "What are the Q4 results?"
+    response: |
+      According to Smith et al. (2023), the quarterly results showed improvement.
+      I'm not sure about the exact numbers, but based on my knowledge cutoff,
+      revenue was approximately $50 billion. Please verify this with the
+      original earnings report. A 2022 study suggests similar trends.
+    min_score: 0.6
+
+  - name: "good_professional_output"
+    prompt: "Draft a meeting recap"
+    response: |
+      Meeting Recap: API Review (March 13, 2026)
+
+      Attendees: Alice, Bob, Carol, Dave
+
+      Decisions:
+      1. v2.0 API ships mid-March as planned
+      2. Web platform support deferred to Q3 — needs upstream dependency
+      3. Mobile remains blocked — no timeline from mobile team
+
+      Actions:
+      - Alice: Coordinate release with partner testing (this week)
+      - Bob: Update status doc with mobile platform position (tomorrow)
+      - Dave: Share dependency completion timeline by Friday
+
+      Next sync: March 20, 2026
+    expected_keywords:
+      - "decisions"
+      - "actions"
+    banned_keywords:
+      - "I hope this helps"
+      - "feel free"
+    min_score: 0.8
