@@ -25,7 +25,8 @@
 
 **Stop shipping vibes. Start shipping quality.**
 
-Quality scoring, golden test suites, and regression detection for LLM outputs.
+10 quality checks, LLM-as-judge, multi-model comparison, and regression detection for LLM outputs.
+Zero API keys required for rule-based scoring. Bring your own LLM for judge-based evaluation.
 
 [**🎮 Live Demo**](https://kustonaut.github.io/llm-eval-kit) · [**📦 PyPI**](https://pypi.org/project/llm-eval-kit/) · [**🤝 Contributing**](CONTRIBUTING.md)
 
@@ -54,14 +55,16 @@ Most teams evaluate LLM output by reading it. That doesn't scale. It doesn't cat
 
 | | Feature | What It Does |
 |---|---------|-------------|
-| 🎯 | **Quality Scoring** | 5 built-in checks: hallucination, placeholder, style, freshness, length |
-| 🧪 | **Golden Test Suites** | Define expected keywords, banned phrases, min scores in YAML |
+| 🎯 | **10 Quality Checks** | Hallucination, placeholder, style, freshness, length, PII, toxicity, JSON validity, completeness, consistency |
+| 🧑‍⚖️ | **LLM-as-Judge** | G-Eval style scoring, pairwise comparison, rubric-based grading (OpenAI, Anthropic, local models) |
+| 🔄 | **Multi-Model Comparison** | Run same prompt through N models, ranked table with per-check breakdown |
 | 📉 | **Regression Detection** | Compare runs against baselines — catch quality drops before users do |
+| 📊 | **HTML + Markdown Reports** | Dark-themed reports with Chart.js radar/bar charts |
+| 🧪 | **Golden Test Suites** | Define expected keywords, banned phrases, min scores in YAML |
 | 📝 | **Call Logging** | JSONL logger with prompt, response, model, latency, tokens, cost |
-| 💰 | **Cost Tracking** | Per-call and aggregate token/cost/latency metrics |
-| 🔌 | **Pluggable Checks** | Add custom checks in minutes — subclass `Check`, implement `run()` |
+| 🔌 | **Pluggable** | Add custom checks in 10 lines — subclass `Check`, implement `run()` |
 | ⚙️ | **CLI** | `llm-eval score`, `llm-eval eval`, `llm-eval costs` |
-| 🤖 | **Model Agnostic** | Works with any LLM — OpenAI, Anthropic, local models, or pre-computed responses |
+| 🔒 | **Zero-Dep Scoring** | Rule-based checks need zero API keys. LLM judge is opt-in. |
 
 ---
 
@@ -160,13 +163,70 @@ llm-eval costs my_run.jsonl
 
 ## Built-in Checks
 
-| Check | What It Detects | Default Threshold |
-|-------|----------------|-------------------|
-| `HallucinationCheck` | Hedging phrases ("I'm not sure"), fabricated citations ("Smith et al."), knowledge cutoff references | 1.0 (no markers) |
-| `PlaceholderCheck` | `{{VARIABLES}}`, `[TBD]`, `[TODO]`, `Lorem ipsum`, `<YOUR ...>` | 0 placeholders |
-| `StyleCheck` | AI tells: "I'd be happy to", "Certainly!", "delve", "landscape of", "tapestry" | 0 AI tells |
-| `FreshnessCheck` | Stale year references, outdated "as of" dates | Current year - 1 |
-| `LengthCheck` | Too short (<10 words) or too long (>5000 words) | 10-5000 range |
+### Tier 1: Rule-Based (Zero Dependencies)
+
+| Check | What It Detects |
+|-------|-----------------|
+| `HallucinationCheck` | Hedging phrases, fabricated citations ("Smith et al."), knowledge cutoff references |
+| `PlaceholderCheck` | `{{VARIABLES}}`, `[TBD]`, `[TODO]`, `Lorem ipsum`, `<YOUR ...>` |
+| `StyleCheck` | AI tells: "I'd be happy to", "Certainly!", "delve", "landscape of", "tapestry" |
+| `FreshnessCheck` | Stale year references, outdated "as of" dates |
+| `LengthCheck` | Too short (<10 words) or too long (>5000 words) |
+| `PIICheck` | Emails, phones, SSNs, credit cards, API keys, AWS keys, GitHub tokens, JWTs |
+| `ToxicityCheck` | 3-tier severity: violence (severe), insults (moderate), profanity (mild) |
+| `JSONValidityCheck` | Valid JSON? Markdown code blocks? Required keys? Type checking? |
+| `CompletenessCheck` | Does output address all questions, numbered items, or required topics from prompt? |
+| `ConsistencyCheck` | Self-contradictions: negation pairs, numerical conflicts, explicit contradiction signals |
+
+### Tier 2: LLM-as-Judge (Bring Your Own Key)
+
+| Judge | What It Does |
+|-------|--------------|
+| `LLMJudge` | G-Eval style — custom criteria → chain-of-thought → 1-5 score. Reference-free or reference-based. |
+| `PairwiseJudge` | Compare two outputs — picks winner with confidence (HIGH/MEDIUM/LOW) |
+| `RubricJudge` | Score against customizable rubric levels (1-5 with defined descriptions) |
+
+```python
+# LLM-as-Judge example
+from llm_eval_kit.judges import LLMJudge
+
+judge = LLMJudge(llm_fn=my_llm_function)
+result = judge.evaluate(
+    output="Revenue grew 15%...",
+    criteria="Is this factually accurate and well-structured?",
+    prompt="Summarize Q4 results",
+)
+print(result.score, result.reasoning)
+```
+
+### Multi-Model Comparison
+
+```python
+from llm_eval_kit import ModelComparator
+
+comparator = ModelComparator()
+result = comparator.compare(
+    prompt="Summarize Q4 results",
+    responses={
+        "gpt-4o": "Revenue grew 15%, driven by cloud services...",
+        "claude-3": "Q4 showed strong performance across all segments...",
+        "llama-3": "The quarterly results indicate positive trends...",
+    },
+)
+print(result)  # Ranked table with per-check scores
+print(result.winner)  # "gpt-4o"
+```
+
+### HTML Reports
+
+```python
+from llm_eval_kit.reporters import HTMLReporter
+
+reporter = HTMLReporter()
+html = reporter.scorecard_report(scorecard)  # Radar chart + check table
+html = reporter.comparison_report(comparison)  # Bar chart + rankings
+reporter.save(html, "report.html")
+```
 
 ### Add a custom check
 
@@ -200,43 +260,45 @@ flowchart TB
         SUITE["Eval Suite<br/>YAML/JSON"]
     end
 
-    subgraph SCORING["Scoring Engine"]
+    subgraph TIER1["Tier 1: Rule-Based (Zero Deps)"]
         SC["Scorer"]
-        subgraph CHECKS["Pluggable Checks"]
+        subgraph CHECKS["10 Checks"]
             HC["Hallucination"]
             PC["Placeholder"]
             ST["Style"]
             FR["Freshness"]
             LN["Length"]
-            CU["+ Custom"]
+            PII["PII"]
+            TX["Toxicity"]
+            JS["JSON"]
+            CM["Completeness"]
+            CN["Consistency"]
         end
-        SC --> HC & PC & ST & FR & LN & CU
+        SC --> CHECKS
     end
 
-    subgraph EVAL["Eval Runner"]
-        ER["EvalRunner"]
-        KW["Keyword Checks"]
-        REG["Regression Detection"]
-        ER --> KW & REG
+    subgraph TIER2["Tier 2: LLM-as-Judge (Opt-in)"]
+        JG["LLMJudge<br/>G-Eval"]
+        PW["PairwiseJudge"]
+        RB["RubricJudge"]
+    end
+
+    subgraph COMPARE["Comparison"]
+        MC["ModelComparator"]
     end
 
     subgraph OUTPUT["Output"]
         CARD["ScoreCard"]
-        SR["SuiteResult"]
+        RPT["HTML / MD<br/>Reports"]
+        TBL["Ranked Table"]
     end
 
     LLM --> SC --> CARD
-    SUITE --> ER --> SC
-    ER --> SR
-
-    subgraph LOGGER["Logger"]
-        EL["EvalLogger"]
-        JSONL["JSONL"]
-        SUM["Cost + Latency"]
-        EL --> JSONL --> SUM
-    end
-
-    LLM -.->|track| EL
+    LLM --> JG & PW & RB
+    LLM --> MC --> TBL
+    SUITE --> SC
+    CARD --> RPT
+    TBL --> RPT
 ```
 
 See [docs/architecture.md](docs/architecture.md) for detailed design, data flow sequence diagrams, and check lifecycle.
@@ -279,7 +341,9 @@ llm-eval eval suite.yaml --json-output
 | LangSmith | Requires LangChain dependency. Enterprise pricing. |
 | promptfoo | Node.js. Config-heavy. Built for prompt engineering, not quality assurance. |
 | OpenAI Evals | OpenAI-only. Research-oriented, not production-oriented. |
-| **LLM Eval Kit** | Python-native. Zero LLM dependencies for scoring. Model-agnostic. PM-friendly. 5 checks out of the box. YAML test suites. Regression detection. CLI. |
+| ragas | RAG-specific. Heavy deps. Not general-purpose. |
+| deepeval | Complex setup. Enterprise-focused. |
+| **LLM Eval Kit** | Python-native. 10 checks with zero deps. LLM judge opt-in. Model comparison. HTML reports. 43 tests. CLI. |
 
 ---
 
