@@ -37,4 +37,5 @@ Thumbs.db
 eval_results/
 reports/
 *.html
+!docs/*.html
 !src/llm_eval_kit/templates/*.html

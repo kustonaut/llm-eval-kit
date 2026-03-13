@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Eval Kit — Quality Scoring for LLM Outputs</title>
+    <meta name="description" content="Score LLM outputs for hallucination, placeholders, AI tells, and more. Try the live demo — runs entirely in your browser.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0e14; --bg-alt: #0d1117; --surface: #131922; --surface-hover: #1a2233;
+            --border: #1e2d3d; --border-bright: #2d4a5e; --text: #e6edf3; --text-muted: #6e7e8e;
+            --accent: #58a6ff; --accent-hover: #79c0ff; --accent-glow: rgba(88,166,255,0.15);
+            --green: #3fb950; --green-glow: rgba(63,185,80,0.15);
+            --yellow: #d29922; --orange: #db6d28; --red: #f85149; --red-glow: rgba(248,81,73,0.1);
+            --purple: #bc8cff; --cyan: #39d2c0;
+            --radius: 8px; --radius-lg: 12px;
+            --mono: 'JetBrains Mono', monospace; --sans: 'Inter', sans-serif;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+
+        .grid-bg {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-image: linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px; pointer-events: none; z-index: 0;
+        }
+        .grid-bg::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at 50% 0%, rgba(88,166,255,0.08) 0%, transparent 70%); }
+
+        /* Hero */
+        .hero { position: relative; text-align: center; padding: 4rem 1rem 2rem; z-index: 1; }
+        .hero-emoji { font-size: 4rem; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(88,166,255,0.3)); }
+        .hero h1 { font-size: 3rem; font-weight: 900; letter-spacing: -0.03em; background: linear-gradient(135deg, var(--accent), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero .tagline { font-size: 1.2rem; color: var(--text-muted); margin-top: 0.5rem; max-width: 600px; margin-inline: auto; }
+
+        /* Features */
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; max-width: 900px; margin: 2rem auto; padding: 0 1rem; z-index: 1; position: relative; }
+        .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem; text-align: center; transition: border-color 0.2s; }
+        .feature:hover { border-color: var(--accent); }
+        .feature .icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .feature .label { font-size: 0.85rem; font-weight: 600; }
+
+        /* Demo */
+        .demo { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; position: relative; z-index: 1; }
+        .demo h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; color: var(--accent); }
+        .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        @media (max-width: 768px) { .demo-grid { grid-template-columns: 1fr; } }
+
+        .input-panel, .output-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.2rem; }
+        .input-panel h3, .output-panel h3 { font-size: 0.9rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        textarea { width: 100%; height: 200px; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 0.85rem; padding: 1rem; resize: vertical; outline: none; }
+        textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+        .preset-btns { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
+        .preset-btn { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 20px; color: var(--text-muted); font-size: 0.75rem; padding: 0.3rem 0.8rem; cursor: pointer; transition: all 0.2s; font-family: var(--sans); }
+        .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .preset-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+
+        .score-btn { width: 100%; background: linear-gradient(135deg, var(--accent), var(--cyan)); border: none; border-radius: var(--radius); color: #000; font-weight: 700; font-size: 1rem; padding: 0.8rem; cursor: pointer; margin-top: 0.8rem; transition: transform 0.1s; font-family: var(--sans); }
+        .score-btn:hover { transform: translateY(-1px); }
+        .score-btn:active { transform: translateY(0); }
+
+        /* Results */
+        .scorecard { margin-bottom: 1rem; }
+        .overall { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding: 1rem; background: var(--bg-alt); border-radius: var(--radius); }
+        .overall-score { font-size: 2.5rem; font-weight: 900; font-family: var(--mono); }
+        .overall-score.pass { color: var(--green); }
+        .overall-score.fail { color: var(--red); }
+        .overall-label { font-size: 0.85rem; color: var(--text-muted); }
+        .overall-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+        .overall-badge.pass { background: var(--green-glow); color: var(--green); border: 1px solid var(--green); }
+        .overall-badge.fail { background: var(--red-glow); color: var(--red); border: 1px solid var(--red); }
+
+        .check-list { list-style: none; }
+        .check-item { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+        .check-item:last-child { border-bottom: none; }
+        .check-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 0.1rem; }
+        .check-name { font-weight: 600; color: var(--text); min-width: 100px; }
+        .check-score { font-family: var(--mono); font-weight: 600; min-width: 40px; }
+        .check-score.good { color: var(--green); }
+        .check-score.warn { color: var(--yellow); }
+        .check-score.bad { color: var(--red); }
+        .check-findings { color: var(--text-muted); font-size: 0.8rem; }
+
+        .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+
+        /* Footer */
+        footer { text-align: center; padding: 3rem 1rem; color: var(--text-muted); font-size: 0.85rem; position: relative; z-index: 1; }
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* Install banner */
+        .install { max-width: 600px; margin: 2rem auto; padding: 0 1rem; position: relative; z-index: 1; text-align: center; }
+        .install code { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.8rem 1.5rem; font-family: var(--mono); font-size: 1rem; color: var(--cyan); display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+
+    <div class="hero">
+        <div class="hero-emoji">🧪</div>
+        <h1>LLM Eval Kit</h1>
+        <p class="tagline">Stop shipping vibes. Start shipping quality.<br>Score any LLM output in your browser — zero dependencies.</p>
+    </div>
+
+    <div class="features">
+        <div class="feature"><div class="icon">🎯</div><div class="label">Hallucination Detection</div></div>
+        <div class="feature"><div class="icon">📝</div><div class="label">Placeholder Check</div></div>
+        <div class="feature"><div class="icon">🤖</div><div class="label">AI Tell Detection</div></div>
+        <div class="feature"><div class="icon">📅</div><div class="label">Freshness Check</div></div>
+        <div class="feature"><div class="icon">📏</div><div class="label">Length Validation</div></div>
+    </div>
+
+    <div class="demo">
+        <h2>Try It</h2>
+        <div class="demo-grid">
+            <div class="input-panel">
+                <h3>LLM Output</h3>
+                <div class="preset-btns">
+                    <button class="preset-btn active" onclick="loadPreset('clean')">Clean Output</button>
+                    <button class="preset-btn" onclick="loadPreset('bad')">Bad Output</button>
+                    <button class="preset-btn" onclick="loadPreset('hallucinate')">Hallucination</button>
+                    <button class="preset-btn" onclick="loadPreset('placeholder')">Placeholders</button>
+                    <button class="preset-btn" onclick="loadPreset('ai_tell')">AI Tells</button>
+                </div>
+                <textarea id="input" spellcheck="false">Revenue grew 15% in Q4, driven by cloud services expansion. Cloud platform revenue increased 29% year over year. SaaS subscribers reached 78.4 million. Operating income grew 20% across all segments, with particularly strong performance in the enterprise tier.</textarea>
+                <button class="score-btn" onclick="scoreText()">Score Output →</button>
+            </div>
+            <div class="output-panel">
+                <h3>Score Card</h3>
+                <div id="results">
+                    <div class="empty-state">
+                        <div class="icon">🧪</div>
+                        <p>Paste or select an output, then click <strong>Score Output</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="install">
+        <code>pip install llm-eval-kit</code>
+    </div>
+
+    <footer>
+        <p>Built by <a href="https://github.com/kustonaut">@kustonaut</a> · <a href="https://github.com/kustonaut/llm-eval-kit">GitHub</a> · MIT License</p>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem;">Part of the <a href="https://github.com/kustonaut">PM Intelligence</a> toolkit: issue-sentinel · github-issue-analytics · pm-signals · llm-eval-kit</p>
+    </footer>
+
+<script>
+// ── Presets ──
+const PRESETS = {
+    clean: `Revenue grew 15% in Q4, driven by cloud services expansion. Cloud platform revenue increased 29% year over year. SaaS subscribers reached 78.4 million. Operating income grew 20% across all segments, with particularly strong performance in the enterprise tier.`,
+
+    bad: `I'd be happy to help! According to Smith et al. (2019), the results for {{QUARTER}} showed [TBD] improvement. In today's world, it's worth noting that revenue was approximately $50 billion. Please verify this with the original source. I hope this helps! Feel free to reach out.`,
+
+    hallucinate: `According to Smith et al. (2023), the quarterly results showed significant improvement. I'm not sure about the exact numbers, but based on my knowledge cutoff, revenue was approximately $50 billion. A 2022 study from Johnson & Brown suggests similar trends. Please verify this with the original earnings report, as I cannot access real-time data.`,
+
+    placeholder: `Project Status Report: {{PROJECT_NAME}}
+Owner: [TBD]
+Timeline: Q2 2026
+Current State: The project is on track with [INSERT DETAILS HERE].
+Next steps: Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Budget: Replace this with your actual budget figure.
+Risk assessment: <YOUR ASSESSMENT HERE>`,
+
+    ai_tell: `I'd be happy to help you with that! Certainly, in today's world, it's worth noting that this is a great question. Let me delve into the landscape of this topic for you. The tapestry of information here is quite rich. Absolutely, I can provide some insights. I hope this helps! Feel free to reach out if you need anything else. Of course, I'm always here to assist.`,
+};
+
+function loadPreset(name) {
+    document.getElementById('input').value = PRESETS[name];
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+// ── Check Engine (browser-side, mirrors Python checks) ──
+const HALLUCINATION_MARKERS = [
+    /\bas of my (knowledge|training) cutoff\b/i,
+    /\bI don'?t have (access|information|data) (to|about|on)\b/i,
+    /\bI'?m not (sure|certain|able to verify)\b/i,
+    /\bthis (is|may be) speculative\b/i,
+    /\bI cannot (confirm|verify|validate)\b/i,
+    /\bplease (verify|check|confirm) (this|with)\b/i,
+    /\baccording to my (training|knowledge)\b/i,
+    /\bbased on my knowledge cutoff\b/i,
+    /\bnote:?\s*I (don'?t|cannot|can'?t) (access|browse|search)\b/i,
+];
+const CITATION_MARKERS = [
+    /\b(Smith|Johnson|Brown) et al\.?,?\s*\(?\d{4}\)?\b/i,
+    /\baccording to a (\d{4} )?study\b/i,
+    /\bsources?:?\s*(unavailable|not available|n\/?a)\b/i,
+];
+const PLACEHOLDER_PATTERNS = [
+    [/\{\{[A-Za-z_]\w*\}\}/g, 'Template variable'],
+    [/\[TBD\]/gi, 'TBD marker'],
+    [/\[TODO\]/gi, 'TODO marker'],
+    [/\[PLACEHOLDER\]/gi, 'Placeholder'],
+    [/\[INSERT .+?\]/gi, 'Insert instruction'],
+    [/\bLorem ipsum\b/gi, 'Lorem ipsum filler'],
+    [/\bXXX+\b/g, 'XXX placeholder'],
+    [/<YOUR[_ ].*?>/gi, 'Template instruction'],
+    [/\b(replace|update) (this|with your)\b/gi, 'Replace instruction'],
+];
+const AI_TELLS = [
+    [/\bI'?d be happy to\b/i, "I'd be happy to"],
+    [/\bLet me know if you need\b/i, 'Let me know if you need'],
+    [/\bIn today'?s (world|landscape|environment)\b/i, 'Filler opener'],
+    [/\bIt'?s worth noting\b/i, 'Filler phrase'],
+    [/\bCertainly!?\b/i, 'Certainly'],
+    [/\bAbsolutely!?\b/i, 'Absolutely'],
+    [/\bOf course!?\b/i, 'Of course'],
+    [/\bGreat question\b/i, 'Great question'],
+    [/\bI hope this helps\b/i, 'I hope this helps'],
+    [/\bFeel free to\b/i, 'Feel free to'],
+    [/\bAs an AI\b/i, 'Self-references as AI'],
+    [/\bdelve (into|deeper)\b/i, 'delve'],
+    [/\btapestry\b/i, 'tapestry'],
+    [/\blandscape of\b/i, 'landscape of'],
+];
+
+function runChecks(text) {
+    const checks = [];
+
+    // Hallucination
+    let hFindings = [];
+    HALLUCINATION_MARKERS.forEach(p => { if (p.test(text)) hFindings.push('Hedging marker detected'); });
+    CITATION_MARKERS.forEach(p => { if (p.test(text)) hFindings.push('Possible fabricated citation'); });
+    const hTotal = HALLUCINATION_MARKERS.length + CITATION_MARKERS.length;
+    const hScore = Math.max(0, 1 - hFindings.length / hTotal);
+    checks.push({ name: 'Hallucination', score: hScore, passed: hFindings.length === 0, findings: hFindings });
+
+    // Placeholder
+    let pFindings = [];
+    PLACEHOLDER_PATTERNS.forEach(([pat, label]) => {
+        const m = text.match(pat);
+        if (m) m.slice(0, 3).forEach(v => pFindings.push(`${label}: ${v}`));
+    });
+    const pScore = pFindings.length === 0 ? 1 : Math.max(0, 1 - pFindings.length * 0.2);
+    checks.push({ name: 'Placeholder', score: pScore, passed: pFindings.length === 0, findings: pFindings });
+
+    // Style
+    let sFindings = [];
+    AI_TELLS.forEach(([pat, label]) => { if (pat.test(text)) sFindings.push(`AI tell: ${label}`); });
+    const sScore = Math.max(0, 1 - sFindings.length / AI_TELLS.length);
+    checks.push({ name: 'Style', score: sScore, passed: sFindings.length === 0, findings: sFindings });
+
+    // Freshness
+    const year = new Date().getFullYear();
+    const years = [...text.matchAll(/\b(20\d{2})\b/g)].map(m => parseInt(m[1]));
+    const stale = years.filter(y => y < year - 1);
+    const unique_stale = [...new Set(stale)];
+    const fFindings = unique_stale.length > 0 ? [`Stale years: ${unique_stale.join(', ')}`] : [];
+    const totalYears = new Set(years).size || 1;
+    const fScore = Math.max(0, 1 - unique_stale.length / totalYears);
+    checks.push({ name: 'Freshness', score: fScore, passed: unique_stale.length === 0, findings: fFindings });
+
+    // Length
+    const words = text.trim().split(/\s+/).length;
+    let lScore, lFindings = [];
+    if (words < 10) { lScore = words / 50; lFindings.push(`Too short: ${words} words`); }
+    else if (words > 5000) { lScore = Math.max(0, 1 - (words - 2000) / 2000); lFindings.push(`Too long: ${words} words`); }
+    else if (words >= 50 && words <= 2000) { lScore = 1; }
+    else if (words < 50) { lScore = words / 50; }
+    else { lScore = Math.max(0, 1 - (words - 2000) / 2000); }
+    const lPassed = words >= 10 && words <= 5000;
+    checks.push({ name: 'Length', score: lScore, passed: lPassed, findings: lFindings, metadata: { words } });
+
+    // Overall
+    const overall = checks.reduce((s, c) => s + c.score, 0) / checks.length;
+    return { checks, overall, passed: overall >= 0.7 };
+}
+
+function scoreText() {
+    const text = document.getElementById('input').value.trim();
+    if (!text) return;
+
+    const result = runChecks(text);
+    const container = document.getElementById('results');
+
+    const scoreClass = result.passed ? 'pass' : 'fail';
+    const badgeText = result.passed ? 'PASS' : 'FAIL';
+
+    let html = `<div class="scorecard">
+        <div class="overall">
+            <div class="overall-score ${scoreClass}">${result.overall.toFixed(2)}</div>
+            <div>
+                <div class="overall-badge ${scoreClass}">${badgeText}</div>
+                <div class="overall-label">${result.checks.filter(c=>c.passed).length}/${result.checks.length} checks passed</div>
+            </div>
+        </div>
+        <ul class="check-list">`;
+
+    result.checks.forEach(check => {
+        const icon = check.passed ? '✅' : '❌';
+        const scoreClass = check.score >= 0.9 ? 'good' : check.score >= 0.5 ? 'warn' : 'bad';
+        const findings = check.findings.length > 0
+            ? `<div class="check-findings">${check.findings.slice(0, 3).join(' · ')}</div>`
+            : '';
+
+        html += `<li class="check-item">
+            <span class="check-icon">${icon}</span>
+            <span class="check-name">${check.name}</span>
+            <span class="check-score ${scoreClass}">${check.score.toFixed(2)}</span>
+            <div>${findings}</div>
+        </li>`;
+    });
+
+    html += '</ul></div>';
+    container.innerHTML = html;
+}
+
+// Auto-score on load
+window.addEventListener('DOMContentLoaded', () => setTimeout(scoreText, 300));
+</script>
+</body>
+</html>
