@@ -1,19 +1,8 @@
 <div align="center">
 
-```
-██╗     ██╗     ███╗   ███╗
-██║     ██║     ████╗ ████║
-██║     ██║     ██╔████╔██║
-██║     ██║     ██║╚██╔╝██║
-███████╗███████╗██║ ╚═╝ ██║
-╚══════╝╚══════╝╚═╝     ╚═╝
-███████╗██╗   ██╗ █████╗ ██╗         ██╗  ██╗██╗████████╗
-██╔════╝██║   ██║██╔══██╗██║         ██║ ██╔╝██║╚══██╔══╝
-█████╗  ██║   ██║███████║██║         █████╔╝ ██║   ██║
-██╔══╝  ╚██╗ ██╔╝██╔══██║██║         ██╔═██╗ ██║   ██║
-███████╗ ╚████╔╝ ██║  ██║███████╗    ██║  ██╗██║   ██║
-╚══════╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝    ╚═╝  ╚═╝╚═╝   ╚═╝
-```
+<a href="https://kustonaut.github.io/llm-eval-kit">
+  <img src="https://raw.githubusercontent.com/kustonaut/llm-eval-kit/main/docs/readme-hero.svg" width="800" alt="LLM Eval Kit — 10 Checks, 3 Judges, 0 API Keys" />
+</a>
 
 # LLM Eval Kit 🧪
 
@@ -253,6 +242,13 @@ scorer = Scorer(checks=[ProfanityCheck(), ...])
 
 ## Architecture
 
+<div align="center">
+  <img src="https://raw.githubusercontent.com/kustonaut/llm-eval-kit/main/docs/readme-arch.svg" width="800" alt="LLM Eval Kit Architecture" />
+</div>
+
+<details>
+<summary>Mermaid diagram (click to expand)</summary>
+
 ```mermaid
 flowchart TB
     subgraph INPUT["Input"]
@@ -300,6 +296,8 @@ flowchart TB
     CARD --> RPT
     TBL --> RPT
 ```
+
+</details>
 
 See [docs/architecture.md](docs/architecture.md) for detailed design, data flow sequence diagrams, and check lifecycle.
 ```
