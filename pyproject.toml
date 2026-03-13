@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-eval-kit"
-version = "0.1.0"
-description = "Eval framework for LLM outputs — quality scoring, golden test suites, regression detection, cost tracking."
+version = "0.2.0"
+description = "Eval framework for LLM outputs — 10 quality checks, LLM-as-judge, multi-model comparison, regression detection, HTML reports."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
